@@ -1,0 +1,113 @@
+# Conventions
+# Functions - testFunction
+# Varables - test_variables
+# Constants - TESTCONSTANT
+
+# CONSTANTS
+from pickle import FALSE, TRUE
+
+
+GROCERYEXPENSE = 588 # Grocery Spending per month
+
+NONESSENTIAL = 740.12 # Non Essential per month
+
+MANUALINPUTTEDDATA = False
+
+ADJUSTEDSCALING_GRCY = True # Whether the program will dynamically changes expenses based on wages for groceries
+
+ADJUSTEDSCALING_NESS = True # Dynamically changing non-essential expenses - 
+
+BREAKDOWN = "Week" # A break down of the expensives, either 'week', 'fortnight', 'Month'. Not case sensitive
+
+
+# Calculating tax
+def taxCalculation(customer_income):
+
+    # Calculating tax from users inputted income are taxes are sourced from aus gov website, they more then likely will change in the future. 
+    # To address this we should use an array to easily change the values or use an API to automaticakky pull tax and tax thresholds. 
+    if customer_income < 18200:
+        return 0
+
+    elif customer_income > 18201 and customer_income < 45000:
+        tax_calculation = 0.19 * (customer_income - 18201)
+
+    elif customer_income > 45001 and customer_income < 120000:
+        tax_calculation = (0.325 * (customer_income - 45000)) + 5092
+
+    elif customer_income > 120001 and customer_income < 120000:
+        tax_calculation = (0.37 * (customer_income - 120000)) + 29467
+    
+    else:
+        tax_calculation = (0.45 * (customer_income - 180000)) + 51667
+
+    return tax_calculation
+
+def useableIncome(customer_income, customer_tax, break_down):
+
+    # The break down can be defined by a users, if a break down is not given or incorrectly assign we default to monthly
+    # Break down is if the user wishes to pay in weekly, fortnightly or monthly and the system will break up the supplied income according to the parameters 
+    if break_down.lower() == "week":
+        break_down = 4
+    elif break_down.lower() == "fortnight":
+        break_down = 2
+    else:
+        break_down = 1
+
+    useable_income = ((customer_income - customer_tax) / 12 ) / break_down # Our usable income before we take away spending and savings
+    # We can add a constant of 12 as there will always be 12 months
+    return expenses(customer_income, useable_income, break_down)
+
+def expenses(customer_income, customer_useable_income, break_down):
+    # grocery_Expense = 147 - Average price per week spent on groceries for 75K earners 
+    # Taking some liberties with expenses, these should be tweaked later on in development
+    # customer_useable_income can defined as the income of the customer after tax
+
+    SCALINGCAP = 150000 # The cap of our custom scaling after this number the full percentage of expenses applies
+    SCALINGPERCENTAGE = 77.38475 # This percentage was determined in the Design Document from a quick anaylises of different food products that wealthier people may purchase
+
+    expenses_dict  = {
+        "adjusted_expenses_GCRY": 0,
+        "adjusted_expenses_NESS": 0
+    }
+
+    # If the user wants to input their own expenses.  
+    if MANUALINPUTTEDDATA == True:
+        expenses_dict["adjusted_expenses_GCRY"] = 300  # The manual inputted values of expenses     
+        expenses_dict["adjusted_expenses_NESS"] = 300
+
+    else:
+        if customer_income > 90001 and ADJUSTEDSCALING_GRCY: # We should look into dynamically increasing this as the usable income increases and maxing out at 77.38475% more around the 150,001 range. 
+            if customer_income < SCALINGCAP + 1:
+                expenses_dict["adjusted_expenses_GCRY"] = (GROCERYEXPENSE / break_down) * ((SCALINGPERCENTAGE / (SCALINGCAP - customer_income)) + 1) # Custom scaling for a range of 90,000 - 150,000 with a rate of change equal to the customer-wage minus the max dividing that by the percentage  
+            elif customer_income > SCALINGCAP:
+                expenses_dict["adjusted_expenses_GCRY"] = (NONESSENTIAL / break_down) * (SCALINGPERCENTAGE + 1) # When income is more then the cap the full scaling percentage will apply
+            else:
+                expenses_dict["adjusted_expenses_GCRY"] = (GROCERYEXPENSE / break_down) * ((SCALINGPERCENTAGE / 100) + 1) 
+        else:
+            expenses_dict["adjusted_expenses_GCRY"] = GROCERYEXPENSE / break_down
+
+        customer_useable_income = customer_useable_income - expenses_dict["adjusted_expenses_GCRY"]
+
+        # This could be done more efficently in a function, for simplicity sake we will just copy and paste. We can change these hard coded values if we want 
+        if customer_income > 90001 and ADJUSTEDSCALING_NESS:
+            if customer_income < SCALINGCAP + 1:
+                expenses_dict["adjusted_expenses_NESS"] = (NONESSENTIAL / break_down) * ((SCALINGPERCENTAGE / (SCALINGCAP - customer_income)) + 1)
+            elif customer_income > SCALINGCAP:
+                expenses_dict["adjusted_expenses_NESS"] = (NONESSENTIAL / break_down) * (SCALINGPERCENTAGE + 1)
+            else:
+                expenses_dict["adjusted_expenses_NESS"] = (NONESSENTIAL / break_down) * ((SCALINGPERCENTAGE / 100) + 1) 
+        else:
+            expenses_dict["adjusted_expenses_NESS"] = NONESSENTIAL / break_down
+
+        customer_useable_income = customer_useable_income - expenses_dict["adjusted_expenses_NESS"]
+
+    # Adding More expenses such as Utilities, Personal and savings - We will dynamically change these values like groceries 
+    return customer_useable_income, expenses_dict
+
+
+customer_income = 140000
+customer_useable_income, expenses_dict = useableIncome(customer_income, taxCalculation(customer_income), BREAKDOWN)
+
+print(customer_useable_income)
+print(expenses_dict)
+
